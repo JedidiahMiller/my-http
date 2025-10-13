@@ -26,6 +26,68 @@ int initalize_server(HttpServer *server)
     return 0;
 }
 
+int free_server(HttpServer *server)
+{
+    return close(server->server_fd);
+}
+
+HttpHeaderList create_header_list() 
+{
+    HttpHeaderList list = { 0 };
+    list.length = 0;
+    list.head = NULL;
+
+    return list;
+}
+
+int add_header(HttpHeaderList *list, char *key, char *value) 
+{
+    HttpHeader header = { 0 };
+    header.name = key;
+    header.value = value;
+
+    HttpHeaderListItem *wrapper = (HttpHeaderListItem*)malloc(sizeof(HttpHeaderListItem));
+    wrapper->header = header;
+    wrapper->next = list->head;
+
+    list->head = wrapper;
+    list->length++;
+
+    return 0;
+}
+
+int free_header_list_item(HttpHeaderListItem *item)
+{
+    free(item->header.name);
+    free(item->header.value);
+    free(item);
+
+    return 0;
+}
+
+int free_header_list(HttpHeaderList *list) 
+{
+    while (list->head != NULL) {
+        HttpHeaderListItem *tmp_header = list->head;
+        list->head = list->head->next;
+        free_header_list_item(tmp_header);
+    }
+
+    return 0;
+}
+
+int free_http_request(HttpRequest *request)
+{
+    free_header_list(&request->header_list);
+    free(request->method);
+    free(request->target);
+
+    // Free NULL does nothing, so this is fine
+    free(request->body);
+
+    return 0;
+}
+
 /**
  * Accepts an incoming message and attempts to parse it. If it fails, it will attempt to send back
  * a http error message, and then return -1
@@ -62,69 +124,15 @@ int server_accept(HttpServer *server, HttpRequest *request)
         response.status_code = status;
         response.reason_phrase = "Error";
 
-        char response_str[MAX_MESSAGE_SIZE+1];
-        if (http_response_to_string(&response, response_str) == -1) {
-            return -1;
-        }
+        char *response_str = http_response_to_string(&response);
+        if (response_str == NULL) return -1;
 
         send(client_fd, response_str, strlen(response_str), 0); // Could fail
+        free(response_str);
     
         return -1;
     }
     
-    return 0;
-}
-
-int delete_server(HttpServer *server)
-{
-    return close(server->server_fd);
-}
-
-HttpHeaderList create_header_list() 
-{
-    HttpHeaderList list = { 0 };
-    list.length = 0;
-    list.head = NULL;
-
-    return list;
-}
-
-int add_header(HttpHeaderList *list, char *key, char *value) 
-{
-    HttpHeader header = { 0 };
-    header.name = key;
-    header.value = value;
-
-    HttpHeaderListItem *wrapper = (HttpHeaderListItem*)malloc(sizeof(HttpHeaderListItem));
-    wrapper->header = header;
-    wrapper->next = list->head;
-
-    list->head = wrapper;
-    list->length++;
-
-    return 0;
-}
-
-int free_header_list(HttpHeaderList *list) 
-{
-    while (list->head != NULL) {
-        HttpHeaderListItem *item = list->head;
-        list->head = list->head->next;
-        free(item->header.name);
-        free(item->header.value);
-        free(item);
-    }
-
-    return 0;
-}
-
-int free_http_request(HttpRequest *request)
-{
-    free_header_list(&request->header_list);
-    free(request->method);
-    free(request->target);
-    free(request->body);
-
     return 0;
 }
 
@@ -139,62 +147,90 @@ int free_http_request(HttpRequest *request)
  */
 int parse_http_request(char *text, HttpRequest *request)
 {
-    char method[MAX_LINE_LENGTH];
-    char target[MAX_LINE_LENGTH];
-    char http_version[MAX_LINE_LENGTH];
-
     HttpHeaderList header_list = create_header_list();
 
-    int line_number = 0;
-    char *line = strtok(text, "\r\n");
+    char *line_cursor;
+    char *line;
+
+    /**
+     * Read first line
+     */
+
+    // strtok_r needs the source string to get started. Null makes it progress
+    line = strtok_r(text, "\r\n", &line_cursor);
+
+    char *request_line_cursor;
+
+    char *method_pointer = strtok_r(line, " ", &request_line_cursor);
+    if (method_pointer == NULL) return 400;
+    request->method = strdup(method_pointer);
+
+    char *target_pointer = strtok_r(NULL, " ", &request_line_cursor);
+    if (target_pointer == NULL) return 400;
+    if (strcmp(target_pointer, "HTTP/1.1") == 0) return 400;
+    request->target = strdup(target_pointer);
+
+    char *http_version = strtok_r(NULL, "", &request_line_cursor);
+    if (http_version == NULL) return 400;
+    http_version = strdup(http_version);
+
+    /**
+     * Read headers
+     */
+
+    line = strtok_r(NULL, "\r\n", &line_cursor);
 
     while (line != NULL) {
-        if (line_number == 0) {
-            if (sscanf(line, "%s %s %s", method, target, http_version) != 3) {
-               return 400;
-            }
-        } else {
-            if (strlen(line) == 0) {
-                char *rest_of_message = strtok(NULL, "");
-                request->body = strdup(rest_of_message);
-                break;
-            }
-
-            char *key = (char*)malloc(MAX_LINE_LENGTH);
-            char *value = (char*)malloc(MAX_LINE_LENGTH);
-
-            if (sscanf(line, " %[^:]: %s\r\n", key, value) != 2) {
-                return -1;
-            }
-
-            add_header(&header_list, key, value);
+        if (strlen(line) == 0) {
+            char *rest_of_message = strtok(NULL, "");
+            request->body = strdup(rest_of_message);
+            break;
         }
 
-        // strtok has internal state. Null makes it go to the next token
-        line = strtok(NULL, "\r\n");
-        line_number++;
+        char *key;
+        char *value;
+        char *header_cursor;
+
+        char *key_pointer = strtok_r(line, ":", &header_cursor);
+        if (key_pointer == NULL) return 400;
+        key = strdup(key_pointer);
+
+        char *value_pointer = strtok_r(NULL, "", &header_cursor);
+        if (value_pointer == NULL) return 400;
+        value = strdup(value_pointer);
+
+        add_header(&header_list, key, value);
+
+        line = strtok_r(NULL, "\r\n", &line_cursor);
     }
 
-    request->method = strdup(method);
-    request->target = strdup(target);
-
+    char *body_pointer = strtok_r(NULL, "", &line_cursor);
+    if (body_pointer == NULL) {
+        request->body = NULL;
+    } else {
+        request->body = strdup(body_pointer);
+    }
+    
     request->header_list = header_list;
 
     return 0;
 }
 
 /**
- * Turn a http response struct into a string that can be returned
+ * Turn a http response struct into a string that can be returned. Returns a string pointer that
+ * will need to be freed at some point
  * 
- * The content length header will be automatically appended to the end
+ * The content length header will be automatically appended to the list of headers
  */
-// TODO: This could write off the end of the response string
-int http_response_to_string(HttpResponse *response, char *result)
+char *http_response_to_string(HttpResponse *response)
 {
-    if (response->status_code < 100 || response->status_code > 599) {
-        return -1; // Status code is outside http code range (100-599)
-    }
-    result[0] = '\0'; // Otherwise the string might not be initialized, breaking strlen calls later
+    // Check errors
+    if (response->status_code < 100 || response->status_code > 599) return NULL;
+    if (response->reason_phrase == NULL) return NULL;
+    
+    // Initialize string
+    char *result = (char*)malloc(MAX_MESSAGE_SIZE + 1);
+    result[0] = '\0';
 
     // First line
     snprintf(
@@ -227,7 +263,6 @@ int http_response_to_string(HttpResponse *response, char *result)
         content_length
     );
 
-
     // End headers with empty line
     snprintf(
         result + strlen(result), 
@@ -245,5 +280,21 @@ int http_response_to_string(HttpResponse *response, char *result)
         );
     }
 
-    return 0;
+    return result;
+}
+
+int send_response(int client_fd, HttpResponse *response)
+{
+    char *response_str = http_response_to_string(response);
+
+    if (response_str == NULL) {
+        return -1;
+    }
+
+    int send_status = send(client_fd, response_str, strlen(response_str), 0);
+    int return_status = send_status < (int)strlen(response_str) ? -1 : 0;
+
+    free(response_str);
+
+    return return_status;
 }

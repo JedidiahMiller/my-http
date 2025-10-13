@@ -15,7 +15,7 @@ HttpServer server;
 
 void kill_server()
 {
-    if (delete_server(&server)) {
+    if (free_server(&server)) {
         printf("Server shut down. Attempt to close socket failed.\n");
     } else {
         printf("Server shut down. Socket closed.\n");
@@ -44,21 +44,17 @@ int main() {
         response.header_list = create_header_list();
         response.status_code = 200;
         response.reason_phrase = "OK";
-        response.body = "Hello world!";
+        response.body = "Hello world!\n";
 
-
-        char response_str[MAX_MESSAGE_SIZE];
-        if (http_response_to_string(&response, response_str) == -1) {
-            printf("Failed to turn response into string\n");
+        if (send_response(request.client_fd, &response) == -1) {
+            printf("Failed to send response\n");
+            free_http_request(&request);
             kill_server();
+        } else {
+            printf("Sent response\n");
         }
 
-        if(send(request.client_fd, response_str, strlen(response_str), 0) == -1) {
-            printf("Failed to respond to client\n");
-            kill_server();
-        }
-        printf("Sent response\n");
-
+        free_http_request(&request);
 
         close(request.client_fd);
     }

@@ -18,18 +18,10 @@ typedef struct HttpServer {
   struct sockaddr_in address;
 } HttpServer;
 
+/**
+ * Headers 
+ */
 
-// Just the common ones
-typedef enum HttpMethod {
-  GET,
-  POST,
-  PUT,
-  DELETE,
-  PATCH
-} HttpMethod;
-
-
-/* Headers */
 typedef struct HttpHeader {
   char *name;
   char *value;
@@ -62,14 +54,20 @@ typedef struct HttpResponse
   char *body;
 } HttpResponse;
 
+/**
+ * Functions
+ */
+
 HttpHeaderList create_header_list();
 int parse_http_request(char *text, HttpRequest *request);
 int add_header(HttpHeaderList *list, char *key, char *value);
 int free_header_list(HttpHeaderList *list);
-int http_response_to_string(HttpResponse *response, char *result);
+char *http_response_to_string(HttpResponse *response);
 int initalize_server(HttpServer *server);
 int server_accept(HttpServer *server, HttpRequest *request);
-int delete_server(HttpServer *server);
-int delete_request(HttpRequest *request);
+int free_header_list_item(HttpHeaderListItem *header);
+int free_server(HttpServer *server);
+int free_http_request(HttpRequest *request);
+int send_response(int client_fd, HttpResponse *response);
 
 #endif
