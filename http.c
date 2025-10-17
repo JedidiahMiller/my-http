@@ -80,6 +80,23 @@ int print_header_list(HttpHeaderList *list)
     return 0;
 }
 
+char* get_header(HttpHeaderList *list, char *header_key)
+{
+    if (list == NULL) {
+        return NULL;
+    }
+
+    HttpHeaderListItem *current = list->head;
+    while (current != NULL) {
+        if (strcmp(header_key, current->header.name) == 0) {
+            return current->header.value;
+        }
+        current = current->next;
+    }
+
+    return NULL;
+}
+
 int free_header_list(HttpHeaderList *list) 
 {
     while (list->head != NULL) {
@@ -212,6 +229,10 @@ int parse_http_request(char *text, HttpRequest *request)
 
         char *value_pointer = strtok_r(NULL, "", &header_cursor);
         if (value_pointer == NULL) return 400;
+        // Trim front space in the beginning
+        for (int i = 0; i < (int)strlen(value_pointer); i++) {
+            if (value_pointer[0] == ' ') value_pointer++;
+        }
         value = strdup(value_pointer);
 
         add_header(&header_list, key, value);
@@ -229,6 +250,17 @@ int parse_http_request(char *text, HttpRequest *request)
     request->header_list = header_list;
 
     return 0;
+}
+
+HttpResponse new_400_response(char *reason_phrase)
+{
+    HttpResponse response = { 0 };
+
+    response.header_list = create_header_list();
+    response.status_code = 400;
+    response.reason_phrase = reason_phrase == NULL ? "ERROR" : reason_phrase;
+
+    return response;
 }
 
 /**

@@ -26,9 +26,9 @@ void kill_server()
 
 int main() {
     if (initalize_server(&server) != 0) {
-            printf("Could not launch server\n");
-            kill_server();
-        }
+        printf("Could not launch server\n");
+        kill_server();
+    }
 
     signal(SIGINT, kill_server);
 
