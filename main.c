@@ -39,6 +39,10 @@ int main() {
             kill_server();
         }
 
+        printf("\n--- Printing headers -------\n\n");
+        print_header_list(&request.header_list);
+        printf("----------\n");
+
         HttpResponse response = { 0 };
 
         response.header_list = create_header_list();

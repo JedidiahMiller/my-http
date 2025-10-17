@@ -61,6 +61,7 @@ typedef struct HttpResponse
 HttpHeaderList create_header_list();
 int parse_http_request(char *text, HttpRequest *request);
 int add_header(HttpHeaderList *list, char *key, char *value);
+int print_header_list(HttpHeaderList *list);
 int free_header_list(HttpHeaderList *list);
 char *http_response_to_string(HttpResponse *response);
 int initalize_server(HttpServer *server);

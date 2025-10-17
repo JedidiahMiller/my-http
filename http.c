@@ -65,6 +65,21 @@ int free_header_list_item(HttpHeaderListItem *item)
     return 0;
 }
 
+int print_header_list(HttpHeaderList *list)
+{
+    if (list == NULL) {
+        return -1;
+    }
+
+    HttpHeaderListItem *current = list->head;
+    while (current != NULL) {
+        printf("%s: %s\n", current->header.name, current->header.value);
+        current = current->next;
+    }
+
+    return 0;
+}
+
 int free_header_list(HttpHeaderList *list) 
 {
     while (list->head != NULL) {
