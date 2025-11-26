@@ -198,7 +198,9 @@ int parse_http_request(char *text, HttpRequest *request)
     while (line != NULL) {
         if (strlen(line) == 0) {
             char *rest_of_message = strtok(NULL, "");
-            request->body = strdup(rest_of_message);
+            if (rest_of_message != NULL) {
+                request->body = strdup(rest_of_message);
+            }
             break;
         }
 
@@ -287,9 +289,10 @@ char *http_response_to_string(HttpResponse *response)
 
     // Body if it exists
     if (response->body != NULL) {
+        size_t current_length = strlen(result);
         snprintf(
-            result + strlen(result), 
-            MAX_LINE_LENGTH, 
+            result + current_length,
+            MAX_MESSAGE_SIZE + 1 - current_length,
             "%s",
             response->body
         );
@@ -312,4 +315,11 @@ int send_response(int client_fd, HttpResponse *response)
     free(response_str);
 
     return return_status;
+}
+
+int free_http_response(HttpResponse *response) {
+    free(response->body);
+    free_header_list(&response->header_list);
+
+    return 0;
 }

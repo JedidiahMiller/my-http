@@ -6,8 +6,7 @@
 #define MAX_HEADER_LINES 32
 #define MAX_LINE_LENGTH 256
 #define PORT 80
-#define MAX_MESSAGE_SIZE 2048
-#define MAX_BODY_SIZE 2048
+#define MAX_MESSAGE_SIZE 1000000
 
 /**
  * Server
@@ -69,6 +68,7 @@ int server_accept(HttpServer *server, HttpRequest *request);
 int free_header_list_item(HttpHeaderListItem *header);
 int free_server(HttpServer *server);
 int free_http_request(HttpRequest *request);
+int free_http_response(HttpResponse *response);
 int send_response(int client_fd, HttpResponse *response);
 
 #endif
