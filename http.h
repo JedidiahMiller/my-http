@@ -6,69 +6,42 @@
 #define MAX_HEADER_LINES 32
 #define MAX_LINE_LENGTH 256
 #define PORT 80
-#define MAX_MESSAGE_SIZE 1000000
+#define MAX_REQUEST_SIZE 65536
+#define MAX_METHOD_SIZE 8
+#define MAX_URI_LENGTH 256
+#define MAX_HEADER_KEY_LENGTH 256
+#define MAX_HEADER_VALUE_LENGTH 512
 
-/**
- * Server
- */
+enum RequestState {
+    LOOKING_FOR_METHOD,
+    LOOKING_FOR_URI,
+    LOOKING_FOR_VERSION,
+    LOOKING_FOR_HEADER_KEY,
+    LOOKING_FOR_HEADER_VALUE,
+    LOOKING_FOR_DATA,
+    DONE_READING_REQUEST,
+};
 
-typedef struct HttpServer {
-  int server_fd;
-  struct sockaddr_in address;
-} HttpServer;
+enum HttpMethod {
+    GET,
+    POST,
+};
 
-/**
- * Headers 
- */
+struct HttpRequest {
+    char buffer[MAX_REQUEST_SIZE];
+    int buffer_offset;
+    enum RequestState state;
 
-typedef struct HttpHeader {
-  char *name;
-  char *value;
-} HttpHeader;
+    enum HttpMethod method;
+    char uri[MAX_URI_LENGTH];
 
-typedef struct HttpHeaderListItem {
-  HttpHeader header;
-  struct HttpHeaderListItem *next;
-} HttpHeaderListItem;
+    struct HttpHeader *headers;
+};
 
-typedef struct HttpHeaderList {
-  int length;
-  HttpHeaderListItem *head;
-} HttpHeaderList;
-
-typedef struct HttpRequest
-{
-  int client_fd;
-  char *method; // This should be an enum eventually
-  char *target;
-  HttpHeaderList header_list;
-  void *body;
-} HttpRequest;
-
-typedef struct HttpResponse
-{
-  int status_code;
-  char *reason_phrase;
-  HttpHeaderList header_list;
-  char *body;
-} HttpResponse;
-
-/**
- * Functions
- */
-
-HttpHeaderList create_header_list();
-int parse_http_request(char *text, HttpRequest *request);
-int add_header(HttpHeaderList *list, char *key, char *value);
-int print_header_list(HttpHeaderList *list);
-int free_header_list(HttpHeaderList *list);
-char *http_response_to_string(HttpResponse *response);
-int initalize_server(HttpServer *server);
-int server_accept(HttpServer *server, HttpRequest *request);
-int free_header_list_item(HttpHeaderListItem *header);
-int free_server(HttpServer *server);
-int free_http_request(HttpRequest *request);
-int free_http_response(HttpResponse *response);
-int send_response(int client_fd, HttpResponse *response);
+struct HttpHeader {
+    char key[MAX_HEADER_KEY_LENGTH];
+    char value[MAX_HEADER_VALUE_LENGTH];
+    struct HttpHeader *next;
+};
 
 #endif

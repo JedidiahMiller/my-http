@@ -2,7 +2,7 @@ CC = clang
 CFLAGS = -Wall -Wextra -O2
 
 TARGET = server
-SRC = main.c http.c
+SRC = main.c
 
 all: $(TARGET)
 
@@ -14,3 +14,6 @@ run: $(TARGET)
 
 clean:
 	rm -f $(TARGET)
+
+pretty:
+	clang-format -i *.c *.h
