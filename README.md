@@ -1,6 +1,6 @@
 # My HTTP
 
-This is a project to build an HTTP server from scratch that can server a website made up of static files
+This is a project to build an HTTP server from scratch that can server a website made up of static files. It supports HTTP/1.1 as specified in [RFC 2616](https://datatracker.ietf.org/doc/html/rfc2616)
 
 ## Running
 
